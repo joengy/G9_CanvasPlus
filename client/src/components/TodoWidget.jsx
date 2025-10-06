@@ -9,7 +9,7 @@ function TodoWidget() {
   const holdInterval = useRef();
   const [fadingIds, setFadingIds] = useState([]);
   const [todos, setTodos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); 
   const [error, setError] = useState(null);
   const [courseFilter, setCourseFilter] = useState("all");
   const [timeFilter, setTimeFilter] = useState("all");
@@ -27,22 +27,6 @@ function TodoWidget() {
     "COMPSCI 367": "#a78bfa",
     "(Custom)": "#e5e7eb"
   };
-
-  useEffect(() => {
-    fetch("/src/mock_canvas_todos.json")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load todos");
-        return res.json();
-      })
-      .then((data) => {
-        setTodos(data.map(t => ({ ...t, done: false, source: "canvas" })));
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
 
   // Filtering logic
   let filtered = [...todos];
