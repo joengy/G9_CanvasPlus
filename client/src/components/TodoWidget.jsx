@@ -1,17 +1,11 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useState } from "react";
 import { createPortal } from "react-dom";
 
 function TodoWidget() {
-  // For hold-to-complete
-  const [holdId, setHoldId] = useState(null);
-  const [holdProgress, setHoldProgress] = useState(0);
-  const holdTimeout = useRef();
-  const holdInterval = useRef();
   const [fadingIds, setFadingIds] = useState([]);
   const [todos, setTodos] = useState([]);
-  const [loading, setLoading] = useState(false); 
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [courseFilter, setCourseFilter] = useState("all");
   const [timeFilter, setTimeFilter] = useState("all");
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
@@ -19,20 +13,8 @@ function TodoWidget() {
   const [modalDescription, setModalDescription] = useState("");
   const [modalClass, setModalClass] = useState("");
 
-  // Assign a color to each course
-  const courseColors = {
-    "SOFTENG 310": "#f59e42",
-    "SOFTENG 306": "#60a5fa",
-    "SOFTENG 325": "#34d399",
-    "COMPSCI 367": "#a78bfa",
-    "(Custom)": "#e5e7eb"
-  };
-
   // Filtering logic
   let filtered = [...todos];
-  if (courseFilter !== "all") {
-    filtered = filtered.filter(t => t.course === courseFilter);
-  }
   if (timeFilter !== "all") {
     const now = new Date();
     let minDate = null, maxDate = null;
@@ -53,13 +35,6 @@ function TodoWidget() {
       });
     }
   }
-  // Only show incomplete todos
-  filtered = filtered.filter(t => !t.done);
-
-  // Unique course list for filter dropdown and add modal
-  const customCategories = ["daily", "reading", "sports"];
-  const courseList = ["all", ...Array.from(new Set(todos.map(t => t.course).filter(Boolean).concat(customCategories)))];
-  const addCategoryList = Array.from(new Set(todos.map(t => t.course).filter(Boolean).concat(customCategories)));
 
   const toggleTodo = (id) => {
     // If already fading, ignore
@@ -78,12 +53,9 @@ function TodoWidget() {
     }
   };
 
-  // Only allow deleting custom todos (source !== 'canvas')
+  // Always allow deleting (remove Canvas restriction)
   const deleteTodo = (id) => {
-    setTodos((prev) => prev.filter(t => {
-      const todo = prev.find(t2 => t2.id === id);
-      return todo && todo.source === "canvas" ? true : t.id !== id;
-    }));
+    setTodos(prev => prev.filter(t => t.id !== id));
   };
 
   if (loading) return <div>Loading tasks...</div>;
@@ -91,6 +63,16 @@ function TodoWidget() {
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '0 16px' }}>
+      {/* Obvious done/undone animations */}
+      <style>
+        {`
+          @keyframes check-pop {
+            0% { transform: scale(0.6); opacity: 0; }
+            60% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+          }
+        `}
+      </style>
       {/* Responsive controls: Add button on top if not enough space */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
@@ -107,33 +89,6 @@ function TodoWidget() {
           }}>Add</button>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select value={courseFilter} onChange={e => setCourseFilter(e.target.value)}
-            style={{
-              fontSize: 13,
-              minWidth: 110,
-              maxWidth: 180,
-              padding: '4px 8px',
-              borderRadius: 5,
-              border: '1.5px solid #e5e7eb',
-              appearance: 'auto',
-              WebkitAppearance: 'auto',
-              MozAppearance: 'auto',
-              background: '#f9fafb',
-              color: '#22223b',
-              outline: 'none',
-              cursor: 'pointer',
-              transition: 'border 0.2s, box-shadow 0.2s',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-            onFocus={e => e.target.style.border = '1.5px solid #6366f1'}
-            onBlur={e => e.target.style.border = '1.5px solid #cbd5e1'}
-          >
-            {courseList.map(c => (
-              <option key={c} value={c}>{c === "all" ? "All Courses" : c}</option>
-            ))}
-          </select>
           <select value={timeFilter} onChange={e => setTimeFilter(e.target.value)}
             style={{
               fontSize: 13,
@@ -284,13 +239,13 @@ function TodoWidget() {
                     display: "flex",
                     alignItems: "flex-start",
                     marginBottom: 12,
-                    background: todo.done ? "#e0f2fe" : courseColors[todo.course] || "#fff",
+                    background: "#fff",
                     color: todo.done ? "#888" : "#222",
                     borderRadius: 10,
                     padding: 12,
                     boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
                     position: "relative",
-                    transition: "background 0.2s, opacity 0.35s, transform 0.35s",
+                    transition: "opacity 0.35s, transform 0.35s",
                     opacity: fadingIds.includes(todo.id) ? 0 : 1,
                     transform: fadingIds.includes(todo.id) ? 'translateY(30px)' : 'translateY(0)',
                     pointerEvents: fadingIds.includes(todo.id) ? 'none' : 'auto',
@@ -298,35 +253,10 @@ function TodoWidget() {
                 >
                   <button
                     type="button"
-                    aria-label={todo.done ? "Completed" : "Mark as done"}
-                    onMouseDown={() => {
-                      if (todo.done) return;
-                      setHoldId(todo.id);
-                      setHoldProgress(0);
-                      let progress = 0;
-                      holdInterval.current = setInterval(() => {
-                        progress += 100 / 9; // 1s, 9 steps
-                        setHoldProgress(progress);
-                      }, 100);
-                      holdTimeout.current = setTimeout(() => {
-                        clearInterval(holdInterval.current);
-                        setHoldProgress(100);
-                        toggleTodo(todo.id);
-                        setHoldId(null);
-                      }, 1000);
-                    }}
-                    onMouseUp={() => {
-                      clearTimeout(holdTimeout.current);
-                      clearInterval(holdInterval.current);
-                      setHoldProgress(0);
-                      setHoldId(null);
-                    }}
-                    onMouseLeave={() => {
-                      clearTimeout(holdTimeout.current);
-                      clearInterval(holdInterval.current);
-                      setHoldProgress(0);
-                      setHoldId(null);
-                    }}
+                    role="checkbox"                       
+                    aria-checked={todo.done}              
+                    aria-label={todo.done ? "Mark as undone" : "Mark as done"}
+                    onClick={() => toggleTodo(todo.id)}
                     style={{
                       width: 36,
                       height: 36,
@@ -338,40 +268,40 @@ function TodoWidget() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      cursor: todo.done ? 'default' : 'pointer',
+                      cursor: 'pointer', // keep clickable even when done (for undo)
                       marginTop: 2,
                       marginRight: 12,
                       position: 'relative',
                       outline: 'none',
-                      transition: 'background 0.2s, border 0.2s',
-                      boxShadow: undefined,
+                      transition: 'transform 120ms ease, background 0.2s, border 0.2s, box-shadow 0.2s',
                       padding: 0,
                       overflow: 'visible',
+                      transform: todo.done ? 'scale(0.98)' : 'scale(1)',
+                      boxShadow: todo.done
+                        ? '0 0 0 3px rgba(34,197,94,0.25), 0 4px 10px rgba(0,0,0,0.08)'
+                        : '0 0 0 0 rgba(0,0,0,0)'
                     }}
-                    disabled={todo.done}
                   >
-                    {/* Green Tick icon SVG */}
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke={todo.done ? '#fff' : '#22c55e'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: todo.done ? 1 : 0.8, display: 'block' }}>
+                    {/* Check icon: animated and high-contrast when done */}
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      stroke={todo.done ? '#fff' : '#94a3b8'}  
+                      strokeWidth={todo.done ? 2.8 : 2.2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{
+                        display: 'block',
+                        opacity: todo.done ? 1 : 0.55,       
+                        filter: todo.done ? 'drop-shadow(0 1px 0 rgba(0,0,0,0.25))' : 'none',
+                        animation: todo.done ? 'check-pop 180ms ease-out' : 'none'
+                      }}
+                      aria-hidden="true"
+                    >
                       <polyline points="5 11 9 15 15 7" />
                     </svg>
-                    {/* Progress ring */}
-                    {holdId === todo.id && !todo.done && (
-                      <svg width="40" height="40" style={{ position: 'absolute', top: -4, left: -4, pointerEvents: 'none', zIndex: 1 }}>
-                        <circle
-                          cx="20" cy="20" r="17"
-                          stroke="#22c55e"
-                          strokeWidth="3.5"
-                          fill="none"
-                          strokeDasharray={2 * Math.PI * 17}
-                          strokeDashoffset={2 * Math.PI * 17 * (1 - holdProgress / 100)}
-                          style={{
-                            transition: 'stroke-dashoffset 0.1s linear',
-                            transform: 'rotate(-90deg)',
-                            transformOrigin: '50% 50%'
-                          }}
-                        />
-                      </svg>
-                    )}
                   </button>
                   <div style={{ marginLeft: 4, flex: 1, minWidth: 0 }}>
                     <div style={{
@@ -401,24 +331,22 @@ function TodoWidget() {
                       </div>
                     )}
                   </div>
-                  {todo.source !== 'canvas' && (
-                    <button onClick={() => deleteTodo(todo.id)} style={{
-                      marginLeft: 10,
-                      background: "#fff",
-                      border: "1.5px solid #f87171",
-                      color: "#f87171",
-                      borderRadius: 8,
-                      fontSize: 16,
-                      fontWeight: 600,
-                      width: 32,
-                      height: 32,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      transition: "background 0.2s, color 0.2s, border 0.2s"
-                    }} title="Delete task">✕</button>
-                  )}
+                  <button onClick={() => deleteTodo(todo.id)} style={{
+                    marginLeft: 10,
+                    background: "#fff",
+                    border: "1.5px solid #f87171",
+                    color: "#f87171",
+                    borderRadius: 8,
+                    fontSize: 16,
+                    fontWeight: 600,
+                    width: 32,
+                    height: 32,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    transition: "background 0.2s, color 0.2s, border 0.2s"
+                  }} title="Delete task">✕</button>
                 </li>
               );
             })}
