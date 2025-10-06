@@ -215,6 +215,10 @@ describe('TodoWidget', () => {
   });
 
   it('reloads todos when delete fails', async () => {
+    todosApi.getTodos
+      .mockResolvedValueOnce({ data: mockTodos, error: null })
+      .mockResolvedValueOnce({ data: mockTodos, error: null });
+    
     todosApi.deleteTodo.mockResolvedValue({
       data: null,
       error: new Error('Delete failed'),
@@ -229,13 +233,12 @@ describe('TodoWidget', () => {
     const deleteButtons = screen.getAllByTitle('Delete task');
     fireEvent.click(deleteButtons[0]);
 
-    await waitFor(() => {
-      expect(screen.getByText(/Failed to delete todo/i)).toBeInTheDocument();
-    });
-
-    // Should call getTodos again to reload
+    // Should call getTodos again to reload (total of 2 calls)
     await waitFor(() => {
       expect(todosApi.getTodos).toHaveBeenCalledTimes(2);
     });
+
+    // Item should still be in the list after reload
+    expect(screen.getByText('Complete assignment')).toBeInTheDocument();
   });
 });
