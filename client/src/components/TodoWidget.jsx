@@ -16,8 +16,8 @@ function TodoWidget() {
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState("");
   const [modalDue, setModalDue] = useState("");
-  const [modalCategory, setModalCategory] = useState("");
-  const [newCategory, setNewCategory] = useState("");
+  const [modalDescription, setModalDescription] = useState("");
+  const [modalClass, setModalClass] = useState("");
 
   // Assign a color to each course
   const courseColors = {
@@ -47,7 +47,10 @@ function TodoWidget() {
       maxDate = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
     }
     if (minDate && maxDate) {
-      filtered = filtered.filter(t => t.dueDate && new Date(t.dueDate) >= minDate && new Date(t.dueDate) < maxDate);
+      filtered = filtered.filter(t => {
+        const d = t.due_date || t.dueDate; // support both
+        return d && new Date(d) >= minDate && new Date(d) < maxDate;
+      });
     }
   }
   // Only show incomplete todos
@@ -55,8 +58,8 @@ function TodoWidget() {
 
   // Unique course list for filter dropdown and add modal
   const customCategories = ["daily", "reading", "sports"];
-  const courseList = ["all", ...Array.from(new Set(todos.map(t => t.course).concat(customCategories)))];
-  const addCategoryList = Array.from(new Set(todos.map(t => t.course).concat(customCategories)));
+  const courseList = ["all", ...Array.from(new Set(todos.map(t => t.course).filter(Boolean).concat(customCategories)))];
+  const addCategoryList = Array.from(new Set(todos.map(t => t.course).filter(Boolean).concat(customCategories)));
 
   const toggleTodo = (id) => {
     // If already fading, ignore
@@ -216,38 +219,38 @@ function TodoWidget() {
                 {
                   id: Date.now(),
                   title: modalTitle.trim(),
-                  dueDate: modalDue || null,
-                  course: modalCategory === '__new__' ? newCategory.trim() : modalCategory,
+                  description: modalDescription.trim(),
+                  due_date: modalDue || null,
+                  class: modalClass.trim(),
                   done: false
                 }
               ]);
               setShowModal(false);
               setModalTitle("");
+              setModalDescription("");
               setModalDue("");
-              setModalCategory("");
-              setNewCategory("");
+              setModalClass("");
             }}>
               <div style={{ marginBottom: 14 }}>
                 <label htmlFor="todo-title" style={{ fontSize: 14, fontWeight: 500, color: '#22223b', marginBottom: 4, display: 'block' }}>Title</label>
                 <input id="todo-title" value={modalTitle} onChange={e => setModalTitle(e.target.value)} required placeholder="Task title..." style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1.5px solid #e5e7eb', fontSize: 15, outline: 'none' }} />
               </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label htmlFor="todo-description" style={{ fontSize: 14, fontWeight: 500, color: '#22223b', marginBottom: 4, display: 'block' }}>Description</label>
+                <textarea id="todo-description" value={modalDescription} onChange={e => setModalDescription(e.target.value)} placeholder="Optional details..." rows={3} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1.5px solid #e5e7eb', fontSize: 15, outline: 'none', resize: 'vertical' }} />
+              </div>
+
               <div style={{ marginBottom: 14 }}>
                 <label htmlFor="todo-due-date" style={{ fontSize: 14, fontWeight: 500, color: '#22223b', marginBottom: 4, display: 'block' }}>Due Date</label>
                 <input id="todo-due-date" type="datetime-local" value={modalDue} onChange={e => setModalDue(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1.5px solid #e5e7eb', fontSize: 15, outline: 'none' }} />
               </div>
+
               <div style={{ marginBottom: 18 }}>
-                <label htmlFor="todo-category" style={{ fontSize: 14, fontWeight: 500, color: '#22223b', marginBottom: 4, display: 'block' }}>Category</label>
-                <select id="todo-category" value={modalCategory} onChange={e => setModalCategory(e.target.value)} required style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1.5px solid #e5e7eb', fontSize: 15, outline: 'none', marginBottom: 8 }}>
-                  <option value="" disabled>Select category...</option>
-                  {addCategoryList.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                  <option value="__new__">+ Create new category</option>
-                </select>
-                {modalCategory === '__new__' && (
-                  <input id="todo-new-category" value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="New category name..." style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1.5px solid #e5e7eb', fontSize: 15, outline: 'none', marginTop: 6 }} />
-                )}
+                <label htmlFor="todo-class" style={{ fontSize: 14, fontWeight: 500, color: '#22223b', marginBottom: 4, display: 'block' }}>Class</label>
+                <input id="todo-class" value={modalClass} onChange={e => setModalClass(e.target.value)} placeholder="Class (optional)..." style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1.5px solid #e5e7eb', fontSize: 15, outline: 'none' }} />
               </div>
+
               <button type="submit" style={{ width: '100%', padding: '10px 0', borderRadius: 8, background: '#22223b', color: '#fff', border: 'none', fontWeight: 600, fontSize: 16, cursor: 'pointer' }}>Add Task</button>
             </form>
           </div>
@@ -266,10 +269,12 @@ function TodoWidget() {
         <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
           {filtered
             .sort((a, b) => {
-              if (!a.dueDate && !b.dueDate) return 0;
-              if (!a.dueDate) return 1;
-              if (!b.dueDate) return -1;
-              return new Date(a.dueDate) - new Date(b.dueDate);
+              const ad = a.due_date || a.dueDate;
+              const bd = b.due_date || b.dueDate;
+              if (!ad && !bd) return 0;
+              if (!ad) return 1;
+              if (!bd) return -1;
+              return new Date(ad) - new Date(bd);
             })
             .map(todo => {
               return (
@@ -381,10 +386,18 @@ function TodoWidget() {
                     }} title={todo.title}>
                       {todo.title}
                     </div>
-                    <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 2 }}>{todo.course}</div>
-                    {todo.dueDate && (
+                    <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 2 }}>
+                      {todo.class || todo.course /* prefer class */}
+                    </div>
+                    {(todo.due_date || todo.dueDate) && (
                       <div style={{ fontSize: 12, opacity: 0.7 }}>
-                        Due: {new Date(todo.dueDate).toLocaleString()}
+                        Due: {new Date(todo.due_date || todo.dueDate).toLocaleString()}
+                      </div>
+                    )}
+                    {/* Optionally show description */}
+                    {todo.description && (
+                      <div style={{ fontSize: 13, opacity: todo.done ? 0.6 : 0.9, marginBottom: 4, whiteSpace: 'pre-wrap' }}>
+                        {todo.description}
                       </div>
                     )}
                   </div>
